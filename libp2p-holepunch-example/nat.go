@@ -23,7 +23,7 @@ func configureGateway(gatewayAddress string) {
 	run("ip", "route", "replace", "default", "via", gatewayAddress)
 }
 
-func runNAT(ctx context.Context, natRange, externalAddress, clientAddress string) {
+func runNAT(ctx context.Context, natRange string, externalAddress string) {
 	run("iptables", "--append", "FORWARD", "--jump", "ACCEPT")
 	run("iptables", "--append", "INPUT", "--jump", "DROP")
 	run("iptables", "--append", "OUTPUT", "--jump", "DROP")
@@ -33,11 +33,5 @@ func runNAT(ctx context.Context, natRange, externalAddress, clientAddress string
 		"--source", natRange,
 		"--jump", "SNAT",
 		"--to-source", externalAddress)
-	// run("iptables",
-	// 	"--table", "nat",
-	// 	"--append", "PREROUTING",
-	// 	"--destination", externalAddress,
-	// 	"--jump", "DNAT",
-	// 	"--to-destination", clientAddress)
 	<-ctx.Done()
 }

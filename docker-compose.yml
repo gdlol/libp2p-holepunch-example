@@ -16,14 +16,12 @@ services:
     privileged: true
     networks:
       server:
-        ipv4_address: ${LISTENER_NAT_SERVER_NET_ADDRESS:?}
+        ipv4_address: ${LISTENER_EXTERNAL_ADDRESS:?}
       listener:
         ipv4_address: ${LISTENER_NAT_ADDRESS:?}
     environment:
       - ROLE=NAT
-      - SERVER_NET=${SERVER_NET:?}
-      - CLIENT_ADDRESS=${LISTENER_ADDRESS:?}
-      - SERVER_NET_NAT_ADDRESS=${LISTENER_NAT_SERVER_NET_ADDRESS:?}
+      - EXTERNAL_ADDRESS=${LISTENER_EXTERNAL_ADDRESS:?}
       - NAT_RANGE=${LISTENER_NET:?}
   listener:
     depends_on:
@@ -36,7 +34,7 @@ services:
     environment:
       - ROLE=Listener
       - SERVER_ADDRESS=${SERVER_ADDRESS:?}
-      - NAT_ADDRESS=${LISTENER_NAT_ADDRESS:?}
+      - GATEWAY_ADDRESS=${LISTENER_NAT_ADDRESS:?}
   dialer-nat:
     depends_on:
       - listener
@@ -44,14 +42,12 @@ services:
     privileged: true
     networks:
       server:
-        ipv4_address: ${DIALER_NAT_SERVER_NET_ADDRESS:?}
+        ipv4_address: ${DIALER_EXTERNAL_ADDRESS:?}
       dialer:
         ipv4_address: ${DIALER_NAT_ADDRESS:?}
     environment:
       - ROLE=NAT
-      - SERVER_NET=${SERVER_NET:?}
-      - CLIENT_ADDRESS=${DIALER_ADDRESS:?}
-      - SERVER_NET_NAT_ADDRESS=${DIALER_NAT_SERVER_NET_ADDRESS:?}
+      - EXTERNAL_ADDRESS=${DIALER_EXTERNAL_ADDRESS:?}
       - NAT_RANGE=${DIALER_NET:?}
   dialer:
     depends_on:
@@ -64,7 +60,8 @@ services:
     environment:
       - ROLE=Dialer
       - SERVER_ADDRESS=${SERVER_ADDRESS:?}
-      - NAT_ADDRESS=${DIALER_NAT_ADDRESS:?}
+      - GATEWAY_ADDRESS=${DIALER_NAT_ADDRESS:?}
+      - LISTENER_ADDRESS=${LISTENER_EXTERNAL_ADDRESS:?}
 networks:
   server:
     driver: bridge

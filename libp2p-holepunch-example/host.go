@@ -39,8 +39,9 @@ func getIdentity(seed int64) (peer.ID, libp2p.Option) {
 	return peerID, identity
 }
 
-func getClientHostOptions(serverAddrInfo peer.AddrInfo) []libp2p.Option {
+func getClientHostOptions(identity libp2p.Option, serverAddrInfo peer.AddrInfo) []libp2p.Option {
 	return []libp2p.Option{
+		identity,
 		libp2p.Transport(quic.NewTransport),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", defaultPort)),
 		libp2p.ForceReachabilityPrivate(),

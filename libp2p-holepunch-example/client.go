@@ -17,16 +17,24 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
-func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo) {
-	if !(role == Listener || role == Dialer) {
+func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo, listenerAddress string) {
+	listenerID, listenerIdentity := getIdentity(1)
+	_, dialerIdentity := getIdentity(2)
+	var identity libp2p.Option
+	if role == Listener {
+		identity = listenerIdentity
+	} else if role == Dialer {
+		identity = dialerIdentity
+	} else {
 		panic(role)
 	}
 
 	// Create Host.
-	hostOptions := getClientHostOptions(serverAddrInfo)
+	hostOptions := getClientHostOptions(identity, serverAddrInfo)
 	host, err := libp2p.New(hostOptions...)
 	if err != nil {
 		log.Fatalf("Error creating host: %v\n", err)
@@ -46,16 +54,17 @@ func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo) {
 		}
 	}
 
+	// Wait until external addresses is observed with server's NAT service.
 	idService := host.(*autorelay.AutoRelayHost).Host.(*basichost.BasicHost).IDService()
 	for {
-		hasPublic := false
+		hasPublicAddr := false
 		for _, addr := range idService.OwnObservedAddrs() {
 			if manet.IsPublicAddr(addr) {
-				hasPublic = true
+				hasPublicAddr = true
 				break
 			}
 		}
-		if hasPublic {
+		if hasPublicAddr {
 			log.Printf("Observed self Addrs: %v\n", idService.OwnObservedAddrs())
 			break
 		}
@@ -107,7 +116,7 @@ func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo) {
 		}
 	} else {
 		for {
-			// Discover listener
+			// Discover listener.
 			var listenerAddrInfo peer.AddrInfo
 			for {
 				time.Sleep(3 * time.Second)
@@ -123,6 +132,23 @@ func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo) {
 				}
 			}
 			log.Printf("Found listener: %v\n", listenerAddrInfo)
+
+			// Try direct dial listener
+			directAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/udp/%d/quic", listenerAddress, defaultPort))
+			if err != nil {
+				panic(err)
+			}
+			directAddrInfo := peer.AddrInfo{
+				ID:    listenerID,
+				Addrs: []multiaddr.Multiaddr{directAddr},
+			}
+			log.Printf("Trying to dial listener directly: %v\n", directAddrInfo)
+			err = host.Connect(network.WithForceDirectDial(ctx, "test"), directAddrInfo)
+			if err == nil {
+				log.Fatalln("Direct dial unexpectedly succeeded.")
+			} else {
+				log.Printf("Direct dial failed as expected: %v\n", err)
+			}
 
 			// Send messages to listener.
 			log.Println("Connecting to listener...")
@@ -141,8 +167,8 @@ func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo) {
 						log.Printf("Created stream to %v\n", stream.Conn().RemoteMultiaddr())
 						defer stream.Close()
 						writer := bufio.NewWriter(stream)
-						for {
-							time.Sleep(1 * time.Second)
+						for i := 0; i < 3; i++ {
+							time.Sleep(3 * time.Second)
 							fmt.Println("Sending message to listener...")
 							_, err := writer.WriteString("Hello from dialer.\n")
 							if err == nil {
