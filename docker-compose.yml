@@ -1,0 +1,95 @@
+services:
+  server:
+    build:
+      context: libp2p-holepunch-example
+      dockerfile: ../Dockerfile
+    image: libp2p-holepunch-example
+    networks:
+      server:
+        ipv4_address: ${SERVER_ADDRESS:?}
+    environment:
+      - ROLE=Server
+  listener-nat:
+    depends_on:
+      - server
+    image: libp2p-holepunch-example
+    privileged: true
+    networks:
+      server:
+        ipv4_address: ${LISTENER_NAT_SERVER_NET_ADDRESS:?}
+      listener:
+        ipv4_address: ${LISTENER_NAT_ADDRESS:?}
+    environment:
+      - ROLE=NAT
+      - SERVER_NET=${SERVER_NET:?}
+      - CLIENT_ADDRESS=${LISTENER_ADDRESS:?}
+      - SERVER_NET_NAT_ADDRESS=${LISTENER_NAT_SERVER_NET_ADDRESS:?}
+      - NAT_RANGE=${LISTENER_NET:?}
+  listener:
+    depends_on:
+      - listener-nat
+    image: libp2p-holepunch-example
+    privileged: true
+    networks:
+      listener:
+        ipv4_address: ${LISTENER_ADDRESS:?}
+    environment:
+      - ROLE=Listener
+      - SERVER_ADDRESS=${SERVER_ADDRESS:?}
+      - NAT_ADDRESS=${LISTENER_NAT_ADDRESS:?}
+  dialer-nat:
+    depends_on:
+      - listener
+    image: libp2p-holepunch-example
+    privileged: true
+    networks:
+      server:
+        ipv4_address: ${DIALER_NAT_SERVER_NET_ADDRESS:?}
+      dialer:
+        ipv4_address: ${DIALER_NAT_ADDRESS:?}
+    environment:
+      - ROLE=NAT
+      - SERVER_NET=${SERVER_NET:?}
+      - CLIENT_ADDRESS=${DIALER_ADDRESS:?}
+      - SERVER_NET_NAT_ADDRESS=${DIALER_NAT_SERVER_NET_ADDRESS:?}
+      - NAT_RANGE=${DIALER_NET:?}
+  dialer:
+    depends_on:
+      - dialer-nat
+    image: libp2p-holepunch-example
+    privileged: true
+    networks:
+      dialer:
+        ipv4_address: ${DIALER_ADDRESS:?}
+    environment:
+      - ROLE=Dialer
+      - SERVER_ADDRESS=${SERVER_ADDRESS:?}
+      - NAT_ADDRESS=${DIALER_NAT_ADDRESS:?}
+networks:
+  server:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: 'false'
+    ipam:
+      config:
+        - subnet: ${SERVER_NET:?}
+          ip_range: ${SERVER_NET:?}
+          gateway: ${SERVER_NET_GATEWAY:?}
+  listener:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: 'false'
+    ipam:
+      config:
+        - subnet: ${LISTENER_NET:?}
+          ip_range: ${LISTENER_NET:?}
+          gateway: ${LISTENER_NET_GATEWAY:?}
+  dialer:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: 'false'
+    ipam:
+      config:
+        - subnet: ${DIALER_NET:?}
+          ip_range: ${DIALER_NET:?}
+          gateway: ${DIALER_NET_GATEWAY:?}
