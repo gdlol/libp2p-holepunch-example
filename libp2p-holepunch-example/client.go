@@ -125,8 +125,15 @@ func runClient(ctx context.Context, role Role, serverAddrInfo peer.AddrInfo, lis
 				if err != nil {
 					log.Printf("Error finding listener from DHT: %v\n", err)
 				} else {
-					listenerAddrInfo = <-peers
-					if listenerAddrInfo.ID.Size() > 0 {
+					found := false
+					for addrInfo := range peers {
+						if addrInfo.ID.Validate() == nil && len(addrInfo.Addrs) > 0 {
+							found = true
+							listenerAddrInfo = addrInfo
+							break
+						}
+					}
+					if found {
 						break
 					}
 				}
